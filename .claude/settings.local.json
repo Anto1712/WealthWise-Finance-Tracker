@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npm install:*)",
+      "Bash(where:*)",
+      "Bash(export:*)",
+      "Bash(docker:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx turbo:*)",
+      "Bash(chmod +x:*)",
+      "Bash(helm version:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{{- if not .Values.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wealthwise.configMapName" . }}
+  namespace: {{ include "wealthwise.namespace" . }}
+  labels:
+    {{- include "wealthwise.commonLabels" . | nindent 4 }}
+data:
+  API_PORT: {{ .Values.api.port | quote }}
+  NODE_ENV: {{ .Values.config.nodeEnv | quote }}
+  NEXT_TELEMETRY_DISABLED: "1"
+{{- end }}
