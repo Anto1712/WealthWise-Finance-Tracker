@@ -513,15 +513,26 @@ jobs:
     continue-on-error: true
     permissions:
       security-events: write
+      packages: read
     steps:
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+            | gpg --dearmor \
+            | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
+            | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update -qq
+          sudo apt-get install -y trivy
+
       - name: Scan API image
-        id: trivy-api
-        uses: aquasecurity/trivy-action@0.31.0
-        with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/wealthwise-api:latest
-          format: sarif
-          output: trivy-api.sarif
-          exit-code: "0"
+        run: |
+          trivy image \
+            --format sarif \
+            --output trivy-api.sarif \
+            --exit-code 0 \
+            ghcr.io/${{ github.repository_owner }}/wealthwise-api:latest
 
       - name: Upload API scan results
         uses: github/codeql-action/upload-sarif@v3
@@ -531,13 +542,12 @@ jobs:
           category: trivy-api
 
       - name: Scan Web image
-        id: trivy-web
-        uses: aquasecurity/trivy-action@0.31.0
-        with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/wealthwise-web:latest
-          format: sarif
-          output: trivy-web.sarif
-          exit-code: "0"
+        run: |
+          trivy image \
+            --format sarif \
+            --output trivy-web.sarif \
+            --exit-code 0 \
+            ghcr.io/${{ github.repository_owner }}/wealthwise-web:latest
 
       - name: Upload Web scan results
         uses: github/codeql-action/upload-sarif@v3
