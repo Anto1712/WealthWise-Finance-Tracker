@@ -68,8 +68,12 @@ export default function AnalyticsPage() {
   );
   const { data: trends, isLoading: trendsLoading } = useTrends(months);
   const { data: netWorth, isLoading: netWorthLoading } = useNetWorth();
-  const { data: dayOfWeek, isLoading: dayOfWeekLoading } = useSpendingByDayOfWeek(startDate, endDate);
-  const { data: categoryBreakdown, isLoading: categoryBreakdownLoading } = useCategoryMonthlyBreakdown(months);
+  const { data: dayOfWeek, isLoading: dayOfWeekLoading } = useSpendingByDayOfWeek(
+    startDate,
+    endDate
+  );
+  const { data: categoryBreakdown, isLoading: categoryBreakdownLoading } =
+    useCategoryMonthlyBreakdown(months);
 
   function handleExport() {
     const csvRows = [

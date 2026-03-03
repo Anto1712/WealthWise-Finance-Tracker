@@ -202,7 +202,9 @@ export function CsvImportWizard({ open, onOpenChange }: CsvImportWizardProps) {
           })}
         </div>
 
-        <div className={cn("min-h-0 py-1", step !== "confirm" ? "flex-1 overflow-y-auto" : "hidden")}>
+        <div
+          className={cn("min-h-0 py-1", step !== "confirm" ? "flex-1 overflow-y-auto" : "hidden")}
+        >
           {/* Step 1: Upload */}
           {step === "upload" && (
             <div
@@ -328,7 +330,6 @@ export function CsvImportWizard({ open, onOpenChange }: CsvImportWizardProps) {
               </ScrollArea>
             </div>
           )}
-
         </div>
 
         {/* Step 4: Confirm — outside the scroll container so Select portals have full viewport */}
@@ -336,10 +337,9 @@ export function CsvImportWizard({ open, onOpenChange }: CsvImportWizardProps) {
           <div className="flex-1 space-y-6 py-3">
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-3.5 text-center">
               <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">{csvData.length}</span>{" "}
-                transactions ready with{" "}
-                <span className="font-semibold text-foreground">{mappedFieldCount}</span> mapped
-                fields. Choose where to import them.
+                <span className="font-semibold text-foreground">{csvData.length}</span> transactions
+                ready with <span className="font-semibold text-foreground">{mappedFieldCount}</span>{" "}
+                mapped fields. Choose where to import them.
               </p>
             </div>
 

@@ -254,8 +254,7 @@ export async function importCsv(
 
     // --- category: resolve by name, fall back to default ---
     const rawCategory = resolveField(row, "category", mapping)?.trim().toLowerCase();
-    const resolvedCategoryId =
-      (rawCategory && categoryCache.get(rawCategory)) || defaultCategoryId;
+    const resolvedCategoryId = (rawCategory && categoryCache.get(rawCategory)) || defaultCategoryId;
 
     // --- optional fields ---
     const notes = resolveField(row, "notes", mapping)?.trim() || null;

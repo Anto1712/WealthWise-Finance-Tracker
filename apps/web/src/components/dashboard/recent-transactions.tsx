@@ -53,7 +53,7 @@ export function RecentTransactions() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pt-4 pb-3">
+      <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4">
         <CardDescription className="text-sm font-medium">Recent Transactions</CardDescription>
         <Button variant="ghost" size="sm" asChild className="gap-1 text-xs">
           <Link href="/transactions">

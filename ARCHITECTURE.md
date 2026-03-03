@@ -43,6 +43,41 @@
 
 ---
 
+## Table of Contents
+
+- [System Overview](#system-overview)
+- [Monorepo Build Pipeline](#monorepo-build-pipeline)
+- [API Architecture](#api-architecture)
+  - [Layered Design](#layered-design)
+  - [Middleware Pipeline](#middleware-pipeline)
+  - [Route Map](#route-map)
+  - [Error Handling](#error-handling)
+  - [Pagination](#pagination)
+- [Database Schema](#database-schema)
+  - [Entity Relationship Diagram](#entity-relationship-diagram)
+  - [Index Strategy](#index-strategy)
+- [Web Architecture](#web-architecture)
+  - [Next.js Route Structure](#nextjs-route-structure)
+  - [Component Hierarchy](#component-hierarchy)
+  - [Client Data Flow](#client-data-flow)
+  - [State Management](#state-management)
+  - [Styling Architecture](#styling-architecture)
+- [Authentication Flow](#authentication-flow)
+  - [Full Auth Sequence](#full-auth-sequence)
+  - [Token Lifecycle](#token-lifecycle)
+- [Analytics Pipeline](#analytics-pipeline)
+  - [Budget Summary Flow](#budget-summary-flow)
+- [Deployment Architecture](#deployment-architecture)
+  - [Production (Docker Compose)](#production-docker-compose)
+  - [Nginx Routing](#nginx-routing)
+  - [Development vs Production](#development-vs-production)
+- [Shared Types Contract](#shared-types-contract)
+  - [Schema Coverage](#schema-coverage)
+- [Testing Strategy](#testing-strategy)
+  - [Test Execution Flow](#test-execution-flow)
+
+---
+
 ## System Overview
 
 ```mermaid

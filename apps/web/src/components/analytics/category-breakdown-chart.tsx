@@ -52,10 +52,7 @@ export function CategoryBreakdownChart({ data, isLoading }: CategoryBreakdownCha
         ) : (
           <div className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={data.months}
-                margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-              >
+              <BarChart data={data.months} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                 <YAxis
@@ -84,12 +81,7 @@ export function CategoryBreakdownChart({ data, isLoading }: CategoryBreakdownCha
                   />
                 ))}
                 {data.months.some((m) => "Other" in m) && (
-                  <Bar
-                    dataKey="Other"
-                    name="Other"
-                    stackId="categories"
-                    fill="#94a3b8"
-                  />
+                  <Bar dataKey="Other" name="Other" stackId="categories" fill="#94a3b8" />
                 )}
               </BarChart>
             </ResponsiveContainer>

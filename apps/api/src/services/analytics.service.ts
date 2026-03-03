@@ -259,10 +259,7 @@ export async function trends(userId: string, months: number) {
   return sorted.map((entry) => {
     const net = entry.income - entry.expense;
     runningNetWorth += net;
-    const savingsRate =
-      entry.income > 0
-        ? Math.round((net / entry.income) * 10000) / 100
-        : 0;
+    const savingsRate = entry.income > 0 ? Math.round((net / entry.income) * 10000) / 100 : 0;
 
     return {
       month: `${entry.year}-${String(entry.month).padStart(2, "0")}`,
@@ -401,9 +398,9 @@ export async function categoryMonthlyBreakdown(userId: string, months: number) {
     }
     const record = monthlyMap.get(key)!;
     if (topCategories.includes(r.categoryName)) {
-      record[r.categoryName] = (record[r.categoryName] as number ?? 0) + r.total;
+      record[r.categoryName] = ((record[r.categoryName] as number) ?? 0) + r.total;
     } else {
-      record["Other"] = (record["Other"] as number ?? 0) + r.total;
+      record["Other"] = ((record["Other"] as number) ?? 0) + r.total;
     }
   }
 

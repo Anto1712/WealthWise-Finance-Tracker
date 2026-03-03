@@ -45,6 +45,43 @@ A full-stack personal finance application built with a **Turborepo monorepo**, f
 
 ---
 
+## Table of Contents
+
+- [High-Level Architecture](#high-level-architecture)
+- [Features](#features)
+- [User Interface](#user-interface)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [1. Clone and install](#1-clone-and-install)
+  - [2. Configure environment](#2-configure-environment)
+  - [3. Start MongoDB](#3-start-mongodb)
+  - [4. Seed default data](#4-seed-default-data)
+  - [5. Start development](#5-start-development)
+- [Scripts](#scripts)
+- [Testing](#testing)
+- [API Documentation](#api-documentation)
+  - [Endpoints](#endpoints)
+  - [Request Lifecycle](#request-lifecycle)
+- [Database Schema](#database-schema)
+- [Authentication Flow](#authentication-flow)
+- [Docker Deployment](#docker-deployment)
+  - [Development](#development)
+  - [Production](#production)
+- [Cloud Deployment & Infrastructure](#cloud-deployment--infrastructure)
+  - [Hardened Production Docker](#hardened-production-docker)
+  - [Kubernetes](#kubernetes)
+  - [Helm Chart](#helm-chart)
+  - [Terraform Modules](#terraform-modules)
+  - [Cloud Providers](#cloud-providers)
+  - [Production Nginx](#production-nginx)
+  - [Utility Scripts](#utility-scripts)
+- [Test Coverage](#test-coverage)
+- [Tech Stack](#tech-stack)
+- [License](#license)
+
+---
+
 ## High-Level Architecture
 
 ```mermaid
@@ -660,4 +697,4 @@ pie title 330 Tests Across 3 Packages
 
 ## License
 
-This project is private and not licensed for public distribution.
+This project is licensed under [MIT License](LICENSE).
