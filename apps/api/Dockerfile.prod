@@ -55,9 +55,8 @@ RUN addgroup -g 65532 -S nonroot && \
 
 WORKDIR /app
 
-# Copy production node_modules from deps stage
+# Copy production node_modules from deps stage (npm workspaces hoists all deps to root)
 COPY --from=deps /app/node_modules/ ./node_modules/
-COPY --from=deps /app/apps/api/node_modules/ ./apps/api/node_modules/
 COPY --from=deps /app/package.json ./
 COPY --from=deps /app/apps/api/package.json ./apps/api/
 
