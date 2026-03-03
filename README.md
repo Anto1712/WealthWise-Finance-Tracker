@@ -459,6 +459,10 @@ sequenceDiagram
     AC-->>C: Cache + render
 ```
 
+### Example CSV File for Transaction Import
+
+We also provide a CSV import endpoint for transactions. Refer to the [test-transactions.csv](test-transactions.csv) file for the expected format. You can also use it directly on the UI import wizard to test the feature.
+
 ---
 
 ## Database Schema
