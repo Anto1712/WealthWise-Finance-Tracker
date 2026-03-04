@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import {
   ArrowLeftRight,
   BarChart3,
   LayoutDashboard,
   Menu,
+  Moon,
   PiggyBank,
   Settings,
+  Sun,
   Target,
   Wallet,
   X,
@@ -25,6 +28,7 @@ const APP_NAV = [
 
 function LegalNav() {
   const [open, setOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   return (
     <nav className="border-b border-border">
@@ -41,15 +45,28 @@ function LegalNav() {
             <span className="text-lg font-bold tracking-tight">WealthWise</span>
           </Link>
 
-          {/* Hamburger menu */}
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Toggle navigation"
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="Toggle theme"
+            >
+              <Sun className="h-5 w-5 rotate-0 scale-100 text-muted-foreground transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-5 w-5 rotate-90 scale-0 text-muted-foreground transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </button>
+
+            {/* Hamburger menu */}
+            <button
+              type="button"
+              onClick={() => setOpen(!open)}
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Toggle navigation"
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
 
         {/* Dropdown */}
