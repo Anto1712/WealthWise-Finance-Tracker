@@ -284,8 +284,8 @@ wealthwise/
 ### 1. Clone and install
 
 ```bash
-git clone <repo-url> wealthwise
-cd wealthwise
+git clone https://github.com/hoangsonww/WealthWise-Finance-Tracker.git
+cd WealthWise-Finance-Tracker
 npm install
 ```
 
