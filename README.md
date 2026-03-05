@@ -46,10 +46,14 @@
 [![GitLab CI/CD](https://img.shields.io/badge/GitLab_CI-FCA121?logo=gitlab&logoColor=white)](https://about.gitlab.com/stages-devops-lifecycle/continuous-integration/)
 [![Argo CD](https://img.shields.io/badge/ArgoCD-0.24-ef4444?logo=argo&logoColor=white)](https://argo-cd.readthedocs.io/)
 [![Argo Rollouts](https://img.shields.io/badge/Argo_Rollouts-1.3-ef4444?logo=argo&logoColor=white)](https://argo-rollouts.readthedocs.io/)
+[![MCP](https://img.shields.io/badge/MCP-1.0-4f46e5?logo=data:image/svg+xml;base64,&logoColor=white)](https://modelcontextprotocol.io/)
+[![Anthropic Claude](https://img.shields.io/badge/Claude-Anthropic-cc785c?logo=anthropic&logoColor=white)](https://anthropic.com/)
+[![Pino](https://img.shields.io/badge/Pino-9-687634)](https://getpino.io/)
+[![esbuild](https://img.shields.io/badge/esbuild-0.27-ffcf00?logo=esbuild&logoColor=black)](https://esbuild.github.io/)
 
 A full-stack personal finance application built with a **Turborepo monorepo**, featuring an **Express REST API**, a **Next.js 14** frontend, and **shared Zod schemas** for end-to-end type safety. Track accounts, transactions, budgets, goals, recurring bills, and analytics - all with dark mode, CSV import, and a responsive design. 
 
-WealthWise also includes comprehensive testing with **Vitest** and an interactive **Swagger UI** for API exploration. The project is containerized with **Docker** and ready for production deployment with **Nginx**, **Kubernetes**, and cloud platforms like **AWS**, **Azure**, and **GCP**.
+WealthWise also features an **MCP Server** exposing 35 financial tools for AI agents and an **Agentic AI** service with 4 specialized Claude-powered financial advisors. The project includes comprehensive testing with **Vitest** and an interactive **Swagger UI** for API exploration. It is containerized with **Docker** and ready for production deployment with **Nginx**, **Kubernetes**, and cloud platforms like **AWS**, **Azure**, and **GCP**.
 
 ---
 
@@ -76,6 +80,8 @@ WealthWise also includes comprehensive testing with **Vitest** and an interactiv
 - [Docker Deployment](#docker-deployment)
   - [Development](#development)
   - [Production](#production)
+- [MCP Server](#mcp-server)
+- [Agentic AI](#agentic-ai)
 - [Cloud Deployment & Infrastructure](#cloud-deployment--infrastructure)
   - [Hardened Production Docker](#hardened-production-docker)
   - [Kubernetes](#kubernetes)
@@ -116,6 +122,17 @@ graph TB
             Schemas["Zod Schemas"]
             Types["Inferred TS Types"]
         end
+
+        subgraph MCP["mcp/ - MCP Server"]
+            MCPTools["35 Tools · 4 Resources"]
+            MCPTransport["SSE + stdio Transport"]
+        end
+
+        subgraph AgenticAI["agentic-ai/ - Agentic AI"]
+            Orchestrator["Orchestrator Agent"]
+            Specialists["4 Specialist Agents"]
+            ClaudeAPI["Claude API"]
+        end
     end
 
     DB[(MongoDB 7)]
@@ -127,10 +144,15 @@ graph TB
     Routes --> MW --> Services --> Models --> DB
     MW -.->|"validates input"| Schemas
     Schemas --> Types
+    Orchestrator --> Specialists --> ClaudeAPI
+    ClaudeAPI -->|"tool_use"| MCPTransport
+    MCPTransport --> MCPTools --> DB
 
     style Frontend fill:#0f172a,stroke:#6366f1,color:#e2e8f0
     style Backend fill:#0f172a,stroke:#10b981,color:#e2e8f0
     style Shared fill:#0f172a,stroke:#f59e0b,color:#e2e8f0
+    style MCP fill:#0f172a,stroke:#4f46e5,color:#e2e8f0
+    style AgenticAI fill:#0f172a,stroke:#cc785c,color:#e2e8f0
     style DB fill:#0f172a,stroke:#47a248,color:#e2e8f0
 ```
 
@@ -149,6 +171,9 @@ graph TB
 - **Responsive** - mobile sidebar, adaptive layouts, touch-friendly
 - **Type-safe contracts** - Zod schemas shared between frontend and backend
 - **Interactive API docs** - Swagger UI at `/api/docs`
+- **AI-powered financial advisor** - conversational AI chat with specialized agents for advice, anomaly detection, budget optimization, and forecasting
+- **MCP Server** - Model Context Protocol server exposing 35 tools and 4 resources for AI agent consumption
+- **4 specialist AI agents** - financial advisor, anomaly detector, budget optimizer, and forecaster, orchestrated by an intent classifier
 
 > [!NOTE]
 > The frontend is deployed on Vercel at: **[https://wealthwisefinancial.vercel.app/](https://wealthwisefinancial.vercel.app/).** You can register a new account or use the following demo credentials to explore the app:
@@ -269,6 +294,28 @@ wealthwise/
 │       │   └── __tests__/      # Schema validation tests
 │       └── package.json
 │
+├── mcp/                       # MCP Server (Model Context Protocol)
+│   ├── src/
+│   │   ├── config/            # Zod-validated env config
+│   │   ├── models/            # Mongoose models (mirrors apps/api)
+│   │   ├── tools/             # 35 MCP tools (7 modules)
+│   │   ├── resources/         # 4 MCP resources
+│   │   ├── transport/         # SSE + stdio transports
+│   │   ├── auth/              # JWT token resolver
+│   │   └── __tests__/         # 61 tests
+│   └── package.json
+│
+├── agentic-ai/                # Agentic AI Service (Claude-powered)
+│   ├── src/
+│   │   ├── agents/            # 4 specialist agents + orchestrator
+│   │   ├── prompts/           # System prompts (markdown)
+│   │   ├── mcp/               # MCP client + tool adapter
+│   │   ├── conversation/      # Per-user conversation state
+│   │   ├── middleware/        # Auth + rate limiting
+│   │   ├── routes/            # REST API endpoints
+│   │   └── __tests__/         # 31 tests
+│   └── package.json
+│
 ├── nginx/                      # Production reverse proxy config
 ├── helm/                      # Helm chart (alternative to Kustomize)
 │   └── wealthwise/            # Umbrella chart with per-env values files
@@ -332,6 +379,15 @@ API_PORT=4000
 API_URL=http://localhost:4000
 NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 
+# MCP Server
+MCP_PORT=5100
+MCP_TRANSPORT=sse
+
+# Agentic AI
+AGENT_PORT=5200
+MCP_SERVER_URL=http://localhost:5100
+ANTHROPIC_API_KEY=your-anthropic-api-key
+
 # Optional: Google OAuth
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -375,10 +431,12 @@ curl.exe -X POST http://localhost:4000/api/v1/dev/seed   # adjust the endpoint a
 npm run dev
 ```
 
-This starts both apps in parallel via Turborepo:
+This starts all services in parallel via Turborepo:
 - **Web** → http://localhost:3000
 - **API** → http://localhost:4000
 - **Swagger** → http://localhost:4000/api/docs
+- **MCP** → http://localhost:5100
+- **Agentic AI** → http://localhost:5200
 
 ---
 
@@ -388,24 +446,30 @@ This starts both apps in parallel via Turborepo:
 |---------|-------------|
 | `npm run dev` | Start all apps in development mode |
 | `npm run build` | Build all packages |
-| `npm run test` | Run all test suites (330 tests) |
+| `npm run test` | Run all test suites (422 tests) |
 | `npm run lint` | Type-check all packages |
 | `npm run format` | Format all files with Prettier |
 | `npm run format:check` | Check formatting without writing |
 | `npm run db:seed` | Seed default categories |
 | `npm run clean` | Remove build artifacts and caches |
+| `npx turbo test --filter=@wealthwise/mcp` | Run MCP server tests (61 tests) |
+| `npx turbo test --filter=@wealthwise/agentic-ai` | Run agentic AI tests (31 tests) |
+| `npx turbo build --filter=@wealthwise/mcp` | Build MCP server |
+| `npx turbo build --filter=@wealthwise/agentic-ai` | Build agentic AI service |
 
 ---
 
 ## Testing
 
-The project has **330 tests** across all packages:
+The project has **422 tests** across all packages:
 
 | Package | Tests | Framework | Environment |
 |---------|-------|-----------|-------------|
 | `apps/api` | 138 | Vitest + mongodb-memory-server | Node |
 | `apps/web` | 41 | Vitest | jsdom |
 | `packages/shared-types` | 151 | Vitest | Node |
+| `mcp` | 61 | Vitest + mongodb-memory-server | Node |
+| `agentic-ai` | 31 | Vitest | Node |
 
 ```bash
 # Run all tests
@@ -568,13 +632,19 @@ docker compose -f docker-compose.production.yml up -d
 graph TD
     CLIENT([Browser]) -- ":80 / :443" --> NGINX["Nginx<br/><i>TLS · gzip · proxy</i>"]
     NGINX -- "/api/*" --> API["API :4000"]
+    NGINX -- "/mcp/*" --> MCP["MCP :5100"]
+    NGINX -- "/agent/*" --> AI["Agentic AI :5200"]
     NGINX -- "/*" --> WEB["Web :3000"]
     API --> DB[(MongoDB :27017)]
+    MCP --> DB
+    AI -- "MCP protocol" --> MCP
 
     subgraph Docker["Docker Network"]
         NGINX
         API
         WEB
+        MCP
+        AI
         DB
     end
 
@@ -582,8 +652,36 @@ graph TD
     style NGINX fill:#009639,stroke:#000,color:#fff
     style API fill:#10b981,stroke:#000,color:#fff
     style WEB fill:#0f172a,stroke:#6366f1,color:#e2e8f0
+    style MCP fill:#4f46e5,stroke:#000,color:#fff
+    style AI fill:#cc785c,stroke:#000,color:#fff
     style DB fill:#47a248,stroke:#000,color:#fff
 ```
+
+---
+
+## MCP Server
+
+The MCP (Model Context Protocol) server exposes WealthWise's financial data as **35 tools** and **4 resources** for consumption by AI agents and LLM-powered applications. It supports both **SSE** (Server-Sent Events) and **stdio** transports.
+
+- **Port:** 5100
+- **Tools:** 35 tools across 7 modules (accounts, transactions, budgets, goals, categories, recurring rules, analytics)
+- **Resources:** 4 resources providing schema metadata and summary data
+- **Auth:** JWT token resolution - the same tokens used by the REST API
+
+For full details on tool definitions, resource URIs, transport configuration, and integration examples, see **[MCP.md](MCP.md)**.
+
+---
+
+## Agentic AI
+
+The Agentic AI service provides a conversational financial advisor powered by **Claude Sonnet 4**. An orchestrator agent classifies user intent and delegates to one of 4 specialist agents, each with access to WealthWise data via the MCP server.
+
+- **Port:** 5200
+- **Agents:** Financial advisor, anomaly detector, budget optimizer, forecaster
+- **Orchestrator:** Intent classifier that routes requests to the appropriate specialist
+- **Tool use:** Agents call MCP tools via the `tool_use` loop to fetch real user data before responding
+
+For full details on agent prompts, the orchestration pipeline, and API endpoints, see **[AGENTIC_AI.md](AGENTIC_AI.md)**.
 
 ---
 
@@ -702,10 +800,12 @@ We also provide CI/CD workflows for automated testing, building, and deployment 
 ## Test Coverage
 
 ```mermaid
-pie title 330 Tests Across 3 Packages
+pie title 422 Tests Across 5 Packages
     "Shared Types (151)" : 151
     "API (138)" : 138
+    "MCP (61)" : 61
     "Web (41)" : 41
+    "Agentic AI (31)" : 31
 ```
 
 ---
@@ -727,6 +827,9 @@ pie title 330 Tests Across 3 Packages
 | **API Docs**       | Swagger UI + swagger-jsdoc (OpenAPI 3)              |
 | **Testing**        | Vitest, mongodb-memory-server, Testing Library       |
 | **Formatting**     | Prettier + prettier-plugin-tailwindcss               |
+| **MCP Server**     | @modelcontextprotocol/sdk, Express 4, Mongoose 8     |
+| **Agentic AI**     | @anthropic-ai/sdk (Claude), MCP Client, Express 4   |
+| **AI Model**       | Claude Sonnet 4 (claude-sonnet-4-20250514)           |
 | **Deployment**     | Docker Compose, Nginx reverse proxy                  |
 
 ---

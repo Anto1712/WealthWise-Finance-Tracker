@@ -6,16 +6,20 @@ Project-level instructions for Codex. Loaded automatically at the start of every
 
 ## Project Overview
 
-WealthWise is a full-stack personal finance app built as a **Turborepo monorepo** with three packages:
+WealthWise is a full-stack personal finance app built as a **Turborepo monorepo** with five packages:
 
 - `apps/api` — Express 4 REST API (TypeScript, Mongoose, MongoDB)
 - `apps/web` — Next.js 14 App Router (React 18, Tailwind CSS, shadcn/ui)
 - `packages/shared-types` — Zod schemas and inferred TypeScript types
+- `mcp/` — MCP Server (Model Context Protocol, Mongoose, Express)
+- `agentic-ai/` — Agentic AI Service (Claude, MCP Client, Express)
 
 Package names (use these exact strings with `--filter`):
 - `@wealthwise/api`
 - `@wealthwise/web`
 - `@wealthwise/shared-types`
+- `@wealthwise/mcp`
+- `@wealthwise/agentic-ai`
 
 ---
 
@@ -29,6 +33,10 @@ Package names (use these exact strings with `--filter`):
 | Run API tests only | `npx turbo test --filter=@wealthwise/api` |
 | Run web tests only | `npx turbo test --filter=@wealthwise/web` |
 | Run schema tests only | `npx turbo test --filter=@wealthwise/shared-types` |
+| Run MCP tests only | `npx turbo test --filter=@wealthwise/mcp` |
+| Run AI tests only | `npx turbo test --filter=@wealthwise/agentic-ai` |
+| Build MCP | `npx turbo build --filter=@wealthwise/mcp` |
+| Build AI | `npx turbo build --filter=@wealthwise/agentic-ai` |
 | Type-check | `npm run lint` |
 | Format | `npm run format` |
 | Format check | `npm run format:check` |
@@ -97,6 +105,25 @@ apps/web/src/
 packages/shared-types/src/
 ├── schemas/          → One Zod schema file per entity
 └── types/index.ts    → Inferred TypeScript types only — never hand-written
+
+mcp/src/
+├── config/       → Zod-validated environment config
+├── models/       → Mongoose schemas (mirrors apps/api). Same collections.
+├── tools/        → 35 MCP tools (accounts, transactions, budgets, goals, categories, recurring, analytics)
+├── resources/    → 4 read-only resources (financial-summary, budget-status, goal-progress, upcoming-bills)
+├── transport/    → SSE (Express HTTP) + stdio transports
+├── auth/         → JWT token resolver (same JWT_SECRET as API)
+├── db/           → MongoDB connection manager
+└── server.ts     → McpServer factory
+
+agentic-ai/src/
+├── agents/       → 4 specialist agents + orchestrator. All extend BaseAgent.
+├── prompts/      → System prompts in markdown (one per agent)
+├── mcp/          → MCP client manager + Claude tool_use adapter
+├── conversation/ → Per-user conversation state (in-memory)
+├── middleware/    → Auth (JWT) + rate limiting
+├── routes/       → REST endpoints: /agent/chat, /agent/insights, /agent/insights/summary
+└── server.ts     → Express app factory
 ```
 
 ---
@@ -156,6 +183,47 @@ Types in `types/index.ts` are always inferred (`z.infer<typeof Schema>`) — nev
 
 ---
 
+## MCP Server Conventions (mcp/)
+
+- All tools return `{ content: [{ type: "text", text: JSON.stringify(data) }] }`
+- All queries filter by `getUserId()` — no cross-user access, ever.
+- Use `McpToolError` for errors (`.notFound()`, `.badRequest()`, `.internal()`).
+- Models mirror `apps/api/src/models/` exactly — same collection names, same indexes.
+- Tool names use snake_case (e.g., `list_accounts`, `create_transaction`).
+- Transport is configured via `MCP_TRANSPORT` env var (sse or stdio).
+
+Pattern for a new tool:
+1. Add tool function in `src/tools/<module>.tool.ts`
+2. Register in `src/tools/index.ts`
+3. Add tests in `src/__tests__/tools/<module>.tool.test.ts`
+
+Pattern for a new resource:
+1. Create resource file in `src/resources/<name>.ts`
+2. Register in `src/resources/index.ts`
+
+---
+
+## Agentic AI Conventions (agentic-ai/)
+
+- All agents extend `BaseAgent` which implements the Claude tool_use loop.
+- System prompts are markdown files in `src/prompts/` — loaded by agent name.
+- MCP tools are converted to Claude's tool_use format via `mcpToolsToClaudeTools()`.
+- The orchestrator classifies intent first, then delegates to the chosen specialist.
+- Response shape: `{ success: true, data: { response, agent, conversationId, usage } }`
+- Rate limiting: chat 20 req/min, insights 10 req/min.
+- Cost tracking logs input/output tokens per request.
+
+Pattern for a new agent:
+1. Create class extending `BaseAgent` in `src/agents/<name>.ts`
+2. Create system prompt in `src/prompts/<name>.md`
+3. Register in orchestrator's agent map
+4. Add to `INSIGHT_AGENT_MAP` in `agent.routes.ts` if it's an insight type
+
+Pattern for a new insight type:
+1. Add key to `INSIGHT_AGENT_MAP` and `INSIGHT_PROMPTS` in `agent.routes.ts`
+
+---
+
 ## Testing
 
 | Package | Runner | Key constraint |
@@ -163,9 +231,11 @@ Types in `types/index.ts` are always inferred (`z.infer<typeof Schema>`) — nev
 | `@wealthwise/api` | Vitest + mongodb-memory-server | 30s timeout — never reduce it |
 | `@wealthwise/web` | Vitest + jsdom | No `@vitejs/plugin-react` (causes ESM errors) |
 | `@wealthwise/shared-types` | Vitest (Node) | No special setup |
+| `@wealthwise/mcp` | Vitest + mongodb-memory-server | 30s timeout — same as API |
+| `@wealthwise/agentic-ai` | Vitest | Mocks Anthropic API and MCP client |
 
 Test files go in `__tests__/` adjacent to source. Naming: `<module>.test.ts`.
-Current baseline: 138 API + 41 web + 151 schema = **330 tests total**.
+Current baseline: 138 API + 41 web + 151 schema + 61 MCP + 31 AI = **422 tests total**.
 
 API service tests use real Mongoose against in-memory MongoDB — do **not** mock the database.
 
@@ -184,6 +254,11 @@ Never read, modify, or commit `.env` files. Never log secrets.
 | `NEXTAUTH_URL` | web | Base URL |
 | `NEXT_PUBLIC_API_URL` | web | API base URL with `/api/v1` suffix |
 | `API_PORT` | api | Default 4000 |
+| `MCP_PORT` | mcp | Default 5100 |
+| `MCP_TRANSPORT` | mcp | sse or stdio |
+| `AGENT_PORT` | agentic-ai | Default 5200 |
+| `MCP_SERVER_URL` | agentic-ai | URL of MCP server |
+| `ANTHROPIC_API_KEY` | agentic-ai | Claude API key |
 
 ---
 
@@ -197,3 +272,7 @@ Never read, modify, or commit `.env` files. Never log secrets.
 - **Vitest API timeout**: 30 seconds for mongodb-memory-server startup — do not reduce.
 - **Web vitest config**: No `@vitejs/plugin-react` — causes ESM errors.
 - **Lint command**: `tsc --noEmit` (not `next lint` — no ESLint config in this project).
+- **MCP build**: Uses esbuild (not tsc) due to Mongoose type memory limits. Type checking via `tsc --noEmit`.
+- **Agentic AI requires MCP**: The agentic-ai service connects to MCP at startup. Start MCP first.
+- **MCP_SERVER_URL in Docker**: Use `http://mcp:5100` (service name), not `localhost`.
+- **ANTHROPIC_API_KEY**: Required for agentic-ai. Never commit it.
