@@ -73,6 +73,8 @@
   - [Token Lifecycle](#token-lifecycle)
 - [Analytics Pipeline](#analytics-pipeline)
   - [Budget Summary Flow](#budget-summary-flow)
+- [MCP Server Architecture](#mcp-server-architecture)
+- [Agentic AI Architecture](#agentic-ai-architecture)
 - [Deployment Architecture](#deployment-architecture)
   - [Production (Docker Compose)](#production-docker-compose)
   - [Nginx Routing](#nginx-routing)
@@ -109,6 +111,17 @@ graph TB
             ZS["Zod Schemas"]
             TS["Inferred TS Types"]
         end
+
+        subgraph MCPServer["mcp/ - MCP Server"]
+            MCPTools["35 Tools · 4 Resources"]
+            MCPTransport["SSE + stdio Transport"]
+        end
+
+        subgraph AgenticAI["agentic-ai/ - Agentic AI"]
+            Orchestrator["Orchestrator Agent"]
+            Specialists["4 Specialist Agents"]
+            ClaudeAPI["Claude API"]
+        end
     end
 
     DB[(MongoDB 7)]
@@ -120,10 +133,15 @@ graph TB
     Routes --> MW --> SVC --> MDL --> DB
     MW -. "validates input" .-> ZS
     ZS --> TS
+    Orchestrator --> Specialists --> ClaudeAPI
+    ClaudeAPI -- "tool_use" --> MCPTransport
+    MCPTransport --> MCPTools --> DB
 
     style Frontend fill:#0f172a,stroke:#6366f1,color:#e2e8f0
     style Backend fill:#0f172a,stroke:#10b981,color:#e2e8f0
     style Shared fill:#0f172a,stroke:#f59e0b,color:#e2e8f0
+    style MCPServer fill:#0f172a,stroke:#4f46e5,color:#e2e8f0
+    style AgenticAI fill:#0f172a,stroke:#cc785c,color:#e2e8f0
     style DB fill:#0f172a,stroke:#47a248,color:#e2e8f0
 ```
 
@@ -148,6 +166,8 @@ The application follows a **client-server architecture** inside a **Turborepo mo
 graph LR
     ST["packages/shared-types"] --> API["apps/api"]
     ST --> WEB["apps/web"]
+    MCP_PKG["mcp/"] --> DB_DIRECT["MongoDB (direct)"]
+    AI_PKG["agentic-ai/"] --> MCP_PKG
 
     subgraph Turbo["Turborepo Pipeline"]
         direction LR
@@ -159,6 +179,8 @@ graph LR
     style ST fill:#f59e0b,stroke:#000,color:#000
     style API fill:#10b981,stroke:#000,color:#000
     style WEB fill:#6366f1,stroke:#000,color:#fff
+    style MCP_PKG fill:#4f46e5,stroke:#000,color:#fff
+    style AI_PKG fill:#cc785c,stroke:#000,color:#fff
 ```
 
 | Task    | `dependsOn`                    | Outputs                  | Cached |
@@ -169,7 +191,7 @@ graph LR
 | `test`  | -                              | -                        | Yes    |
 | `clean` | -                              | -                        | No     |
 
-`apps/web` and `apps/api` both depend on `packages/shared-types`. Turbo builds shared-types first, then builds both apps in parallel.
+`apps/web` and `apps/api` both depend on `packages/shared-types`. Turbo builds shared-types first, then builds both apps in parallel. `mcp/` and `agentic-ai/` are independent packages that do not depend on shared-types; `agentic-ai/` connects to the MCP server at runtime.
 
 ---
 
@@ -697,6 +719,154 @@ graph LR
 
 ---
 
+## MCP Server Architecture
+
+The MCP server implements the [Model Context Protocol](https://modelcontextprotocol.io/) to expose WealthWise's financial data to AI agents.
+
+```mermaid
+graph LR
+    CLIENT["MCP Client<br/>(Agentic AI / external)"] --> TRANSPORT["Transport Layer<br/>SSE :5100 · stdio"]
+    TRANSPORT --> SERVER["McpServer<br/>@modelcontextprotocol/sdk"]
+    SERVER --> TOOLS["Tools (35)"]
+    SERVER --> RES["Resources (4)"]
+    TOOLS --> MODELS["Mongoose Models"]
+    RES --> MODELS
+    MODELS --> DB[(MongoDB)]
+
+    AUTH["JWT Token Resolver"] -. "userId" .-> TOOLS
+    AUTH -. "userId" .-> RES
+
+    style CLIENT fill:#6366f1,stroke:#000,color:#fff
+    style TRANSPORT fill:#4f46e5,stroke:#000,color:#fff
+    style SERVER fill:#4f46e5,stroke:#000,color:#fff
+    style DB fill:#47a248,stroke:#000,color:#fff
+```
+
+### Tools (35 across 7 modules)
+
+| Module | Tools | Examples |
+|--------|-------|---------|
+| Accounts | 5 | `list_accounts`, `get_account`, `create_account`, `update_account`, `delete_account` |
+| Transactions | 5 | `list_transactions`, `get_transaction`, `create_transaction`, `update_transaction`, `delete_transaction` |
+| Categories | 5 | `list_categories`, `get_category`, `create_category`, `update_category`, `delete_category` |
+| Budgets | 5 | `list_budgets`, `get_budget`, `create_budget`, `update_budget`, `delete_budget` |
+| Goals | 5 | `list_goals`, `get_goal`, `create_goal`, `update_goal`, `add_funds_to_goal` |
+| Recurring | 5 | `list_recurring_rules`, `get_recurring_rule`, `create_recurring_rule`, `update_recurring_rule`, `delete_recurring_rule` |
+| Analytics | 5 | `spending_by_category`, `income_vs_expense`, `monthly_summary`, `net_worth`, `spending_trends` |
+
+### Resources (4)
+
+| Resource URI | Description |
+|-------------|-------------|
+| `wealthwise://schema/accounts` | Account schema metadata |
+| `wealthwise://schema/transactions` | Transaction schema metadata |
+| `wealthwise://summary/accounts` | Account summary with balances |
+| `wealthwise://summary/budgets` | Budget summary with spending progress |
+
+### Auth Flow
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP Client
+    participant Transport as SSE Transport
+    participant Auth as Token Resolver
+    participant Server as McpServer
+    participant DB as MongoDB
+
+    Client->>Transport: Connect (Bearer token in header)
+    Transport->>Auth: Resolve JWT
+    Auth->>Auth: Verify signature + expiry
+    Auth-->>Transport: userId
+    Client->>Transport: tools/call (list_accounts)
+    Transport->>Server: Execute tool (userId context)
+    Server->>DB: Account.find({ userId })
+    DB-->>Server: Documents
+    Server-->>Transport: Tool result (JSON)
+    Transport-->>Client: SSE event
+```
+
+---
+
+## Agentic AI Architecture
+
+The Agentic AI service provides a conversational financial advisor using Claude Sonnet 4 with tool-use capabilities.
+
+### Agent Pipeline
+
+```mermaid
+graph LR
+    USER["User Message"] --> REST["REST API<br/>:5200"]
+    REST --> AUTH["Auth Middleware<br/>JWT verification"]
+    AUTH --> ORCH["Orchestrator<br/>Intent Classifier"]
+    ORCH --> FA["Financial Advisor"]
+    ORCH --> AD["Anomaly Detector"]
+    ORCH --> BO["Budget Optimizer"]
+    ORCH --> FC["Forecaster"]
+
+    FA & AD & BO & FC --> CLAUDE["Claude API<br/>tool_use loop"]
+    CLAUDE --> MCPC["MCP Client"]
+    MCPC --> MCP["MCP Server :5100"]
+    MCP --> DB[(MongoDB)]
+
+    CLAUDE --> RESP["Response"]
+    RESP --> USER
+
+    style USER fill:#6366f1,stroke:#000,color:#fff
+    style ORCH fill:#cc785c,stroke:#000,color:#fff
+    style CLAUDE fill:#cc785c,stroke:#000,color:#fff
+    style MCP fill:#4f46e5,stroke:#000,color:#fff
+    style DB fill:#47a248,stroke:#000,color:#fff
+```
+
+### Agents
+
+| Agent | Role | Key MCP Tools Used |
+|-------|------|--------------------|
+| **Orchestrator** | Classifies intent, routes to specialist | None (classification only) |
+| **Financial Advisor** | General financial advice, account overview | `list_accounts`, `list_transactions`, `net_worth` |
+| **Anomaly Detector** | Identifies unusual spending patterns | `list_transactions`, `spending_by_category`, `spending_trends` |
+| **Budget Optimizer** | Recommends budget adjustments | `list_budgets`, `spending_by_category`, `income_vs_expense` |
+| **Forecaster** | Projects future spending and savings | `monthly_summary`, `spending_trends`, `net_worth` |
+
+### Chat Request Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as Agentic AI :5200
+    participant Auth as Auth Middleware
+    participant Orch as Orchestrator
+    participant Agent as Specialist Agent
+    participant Claude as Claude API
+    participant MCP as MCP Server :5100
+    participant DB as MongoDB
+
+    U->>API: POST /agent/chat { message }
+    API->>Auth: Verify JWT
+    Auth-->>API: userId
+
+    API->>Orch: Classify intent
+    Orch->>Claude: System prompt + user message
+    Claude-->>Orch: Classification (e.g., "budget_optimization")
+    Orch->>Agent: Delegate to Budget Optimizer
+
+    loop Tool-use iterations
+        Agent->>Claude: System prompt + conversation + tools
+        Claude-->>Agent: tool_use: spending_by_category
+        Agent->>MCP: Call tool (userId context)
+        MCP->>DB: Aggregation query
+        DB-->>MCP: Results
+        MCP-->>Agent: Tool result
+        Agent->>Claude: Tool result appended
+    end
+
+    Claude-->>Agent: Final text response
+    Agent-->>API: Response + conversation state
+    API-->>U: { message, agent, toolsUsed }
+```
+
+---
+
 ## Deployment Architecture
 
 ### Production (Docker Compose)
@@ -706,14 +876,20 @@ graph TD
     CLIENT([Browser]) -- ":80 / :443" --> NGINX["Nginx<br/>Reverse Proxy<br/><i>TLS · gzip · headers</i>"]
 
     NGINX -- "/api/*" --> API["API Container<br/>Express :4000<br/><i>production build</i>"]
+    NGINX -- "/mcp/*" --> MCP["MCP Container<br/>MCP Server :5100<br/><i>production build</i>"]
+    NGINX -- "/agent/*" --> AI["Agentic AI Container<br/>:5200<br/><i>production build</i>"]
     NGINX -- "/*" --> WEB["Web Container<br/>Next.js :3000<br/><i>standalone build</i>"]
 
     API --> DB[(MongoDB :27017<br/><i>persistent volume</i>)]
+    MCP --> DB
+    AI -- "MCP protocol" --> MCP
 
     subgraph NETWORK["wealthwise-network (bridge)"]
         NGINX
         API
         WEB
+        MCP
+        AI
         DB
     end
 
@@ -721,6 +897,8 @@ graph TD
     style NGINX fill:#009639,stroke:#000,color:#fff
     style API fill:#10b981,stroke:#000,color:#fff
     style WEB fill:#0f172a,stroke:#6366f1,color:#e2e8f0
+    style MCP fill:#4f46e5,stroke:#000,color:#fff
+    style AI fill:#cc785c,stroke:#000,color:#fff
     style DB fill:#47a248,stroke:#000,color:#fff
     style NETWORK fill:#1e293b,stroke:#475569,color:#94a3b8
 ```
@@ -728,6 +906,8 @@ graph TD
 ### Nginx Routing
 
 - `/api/` → upstream `api:4000`
+- `/mcp/` → upstream `mcp:5100`
+- `/agent/` → upstream `ai:5200`
 - `/` → upstream `web:3000`
 - Gzip enabled for text, JSON, JS, CSS, SVG
 - Client max body size: 10MB (for CSV imports)
@@ -741,6 +921,8 @@ graph LR
         D_MONGO["MongoDB :27017"]
         D_API["API :4000<br/><i>tsx watch (hot reload)</i>"]
         D_WEB["Web :3000<br/><i>next dev (HMR)</i>"]
+        D_MCP["MCP :5100<br/><i>tsx watch</i>"]
+        D_AI["Agentic AI :5200<br/><i>tsx watch</i>"]
     end
 
     subgraph Prod["docker-compose.prod.yml"]
@@ -748,6 +930,8 @@ graph LR
         P_MONGO["MongoDB :27017"]
         P_API["API :4000<br/><i>node dist/index.js</i>"]
         P_WEB["Web :3000<br/><i>next start (standalone)</i>"]
+        P_MCP["MCP :5100<br/><i>node dist/index.js</i>"]
+        P_AI["Agentic AI :5200<br/><i>node dist/index.js</i>"]
     end
 
     Dev -- "npm run build<br/>docker compose -f prod" --> Prod
@@ -819,11 +1003,13 @@ graph TD
 ## Testing Strategy
 
 ```mermaid
-pie title Test Distribution (330 total)
+pie title Test Distribution (422 total)
     "Shared Types - Schema Validation" : 151
     "API - Services & Business Logic" : 97
+    "MCP - Tools & Resources" : 61
     "API - Middleware & Utilities" : 41
     "Web - Utility Functions" : 41
+    "Agentic AI - Agents & Pipeline" : 31
 ```
 
 | Layer               | Tool                            | What's Tested                                    |
@@ -833,6 +1019,8 @@ pie title Test Distribution (330 total)
 | **API utilities**   | Vitest                          | ApiError factories, pagination helpers            |
 | **Shared schemas**  | Vitest                          | Every Zod schema: valid, invalid, edge cases      |
 | **Web utilities**   | Vitest + jsdom                  | Formatting, class merging, helpers                |
+| **MCP tools**       | Vitest + mongodb-memory-server  | Tool handlers, resource providers, auth resolver  |
+| **Agentic AI**      | Vitest                          | Agent orchestration, classification, MCP client   |
 
 ### Test Execution Flow
 
@@ -843,14 +1031,19 @@ graph LR
     TURBO --> ST_TEST["shared-types<br/>vitest (node)<br/><b>151 tests</b>"]
     TURBO --> API_TEST["api<br/>vitest (node)<br/><b>138 tests</b>"]
     TURBO --> WEB_TEST["web<br/>vitest (jsdom)<br/><b>41 tests</b>"]
+    TURBO --> MCP_TEST["mcp<br/>vitest (node)<br/><b>61 tests</b>"]
+    TURBO --> AI_TEST["agentic-ai<br/>vitest (node)<br/><b>31 tests</b>"]
 
     API_TEST --> MMS["MongoMemoryServer<br/><i>in-memory MongoDB</i>"]
+    MCP_TEST --> MMS
     MMS --> CLEAN["afterEach:<br/>clear collections"]
 
     style CMD fill:#6366f1,stroke:#000,color:#fff
     style ST_TEST fill:#f59e0b,stroke:#000,color:#000
     style API_TEST fill:#10b981,stroke:#000,color:#fff
     style WEB_TEST fill:#8b5cf6,stroke:#000,color:#fff
+    style MCP_TEST fill:#4f46e5,stroke:#000,color:#fff
+    style AI_TEST fill:#cc785c,stroke:#000,color:#fff
 ```
 
 API tests run against a real MongoDB instance (in-memory) with full Mongoose operations - no mocking the database layer. Each test file gets a clean database via `afterEach` collection clearing.
