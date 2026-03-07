@@ -15,8 +15,10 @@ import {
   Repeat,
   Search,
   Settings,
+  Sparkles,
   Sun,
   Target,
+  Tags,
   User,
 } from "lucide-react";
 import {
@@ -65,7 +67,7 @@ export function SearchCommand() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex items-center gap-2 rounded-lg border border-border bg-muted/50 py-2 pl-1 pr-3 text-sm text-muted-foreground transition-colors hover:bg-muted sm:w-64 sm:px-3"
+        className="group flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted sm:w-64 sm:justify-start sm:px-3"
       >
         <Search className="h-4 w-4" />
         <span className="hidden sm:inline">Search...</span>
@@ -93,6 +95,10 @@ export function SearchCommand() {
               <PiggyBank className="mr-2 h-4 w-4" />
               Budgets
             </CommandItem>
+            <CommandItem onSelect={() => go("/categories")}>
+              <Tags className="mr-2 h-4 w-4" />
+              Categories
+            </CommandItem>
             <CommandItem onSelect={() => go("/goals")}>
               <Target className="mr-2 h-4 w-4" />
               Goals
@@ -109,6 +115,10 @@ export function SearchCommand() {
               <BarChart3 className="mr-2 h-4 w-4" />
               Analytics
             </CommandItem>
+            <CommandItem onSelect={() => go("/advisor")}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              AI Advisor
+            </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
@@ -121,6 +131,10 @@ export function SearchCommand() {
             <CommandItem onSelect={() => go("/budgets?action=new")}>
               <Calculator className="mr-2 h-4 w-4" />
               New Budget
+            </CommandItem>
+            <CommandItem onSelect={() => go("/categories?action=new")}>
+              <Tags className="mr-2 h-4 w-4" />
+              New Category
             </CommandItem>
             <CommandItem onSelect={() => go("/goals?action=new")}>
               <Target className="mr-2 h-4 w-4" />
@@ -135,7 +149,7 @@ export function SearchCommand() {
               <User className="mr-2 h-4 w-4" />
               Profile
             </CommandItem>
-            <CommandItem onSelect={() => go("/settings?tab=categories")}>
+            <CommandItem onSelect={() => go("/settings?tab=appearance")}>
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </CommandItem>

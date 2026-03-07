@@ -26,6 +26,10 @@ import {
   createCategorySchema,
   updateCategorySchema,
   categoryResponseSchema,
+  categoryUsageSchema,
+  categoryLinkedBudgetSchema,
+  categoryLinkedRecurringRuleSchema,
+  categoryManagementResponseSchema,
 } from "../schemas/category.schema";
 
 import {
@@ -47,6 +51,15 @@ import {
   updateRecurringSchema,
   recurringResponseSchema,
 } from "../schemas/recurring.schema";
+
+import {
+  advisorChatRoleEnum,
+  advisorChatHistoryItemSchema,
+  advisorChatRequestSchema,
+  advisorChatModelOutputSchema,
+  advisorContextStatsSchema,
+  advisorChatResponseSchema,
+} from "../schemas/advisor.schema";
 
 // ---------------------------------------------------------------------------
 // User types
@@ -79,6 +92,10 @@ export type TransactionResponse = z.infer<typeof transactionResponseSchema>;
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 export type CategoryResponse = z.infer<typeof categoryResponseSchema>;
+export type CategoryUsage = z.infer<typeof categoryUsageSchema>;
+export type CategoryLinkedBudget = z.infer<typeof categoryLinkedBudgetSchema>;
+export type CategoryLinkedRecurringRule = z.infer<typeof categoryLinkedRecurringRuleSchema>;
+export type CategoryManagementResponse = z.infer<typeof categoryManagementResponseSchema>;
 
 // ---------------------------------------------------------------------------
 // Budget types
@@ -102,6 +119,16 @@ export type GoalResponse = z.infer<typeof goalResponseSchema>;
 export type CreateRecurringInput = z.infer<typeof createRecurringSchema>;
 export type UpdateRecurringInput = z.infer<typeof updateRecurringSchema>;
 export type RecurringResponse = z.infer<typeof recurringResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Advisor types
+// ---------------------------------------------------------------------------
+export type AdvisorChatRole = z.infer<typeof advisorChatRoleEnum>;
+export type AdvisorChatHistoryItem = z.infer<typeof advisorChatHistoryItemSchema>;
+export type AdvisorChatRequest = z.infer<typeof advisorChatRequestSchema>;
+export type AdvisorChatModelOutput = z.infer<typeof advisorChatModelOutputSchema>;
+export type AdvisorContextStats = z.infer<typeof advisorContextStatsSchema>;
+export type AdvisorChatResponse = z.infer<typeof advisorChatResponseSchema>;
 
 // ---------------------------------------------------------------------------
 // Generic API response wrappers

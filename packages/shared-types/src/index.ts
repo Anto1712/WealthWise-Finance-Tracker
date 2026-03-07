@@ -32,6 +32,10 @@ export {
   createCategorySchema,
   updateCategorySchema,
   categoryResponseSchema,
+  categoryUsageSchema,
+  categoryLinkedBudgetSchema,
+  categoryLinkedRecurringRuleSchema,
+  categoryManagementResponseSchema,
 } from "./schemas/category.schema";
 
 export {
@@ -58,6 +62,15 @@ export {
   recurringResponseSchema,
 } from "./schemas/recurring.schema";
 
+export {
+  advisorChatRoleEnum,
+  advisorChatHistoryItemSchema,
+  advisorChatRequestSchema,
+  advisorChatModelOutputSchema,
+  advisorContextStatsSchema,
+  advisorChatResponseSchema,
+} from "./schemas/advisor.schema";
+
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
@@ -82,6 +95,10 @@ export type {
   CreateCategoryInput,
   UpdateCategoryInput,
   CategoryResponse,
+  CategoryUsage,
+  CategoryLinkedBudget,
+  CategoryLinkedRecurringRule,
+  CategoryManagementResponse,
   // Budget
   CreateBudgetInput,
   UpdateBudgetInput,
@@ -96,6 +113,13 @@ export type {
   CreateRecurringInput,
   UpdateRecurringInput,
   RecurringResponse,
+  // Advisor
+  AdvisorChatRole,
+  AdvisorChatHistoryItem,
+  AdvisorChatRequest,
+  AdvisorChatModelOutput,
+  AdvisorContextStats,
+  AdvisorChatResponse,
   // API wrappers
   ApiResponse,
   PaginatedResponse,
