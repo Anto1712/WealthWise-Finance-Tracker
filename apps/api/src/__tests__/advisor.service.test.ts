@@ -282,6 +282,88 @@ describe("advisor.service", () => {
     }
   });
 
+  it("keeps the advisor reply and drops malformed action payloads", async () => {
+    const uid = objectId();
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await User.create({
+      _id: uid,
+      email: "fallback@example.com",
+      name: "Taylor Fallback",
+      passwordHash: "hashed-password",
+      currency: "USD",
+    });
+
+    const originalGoogleKey = env.GOOGLE_AI_API_KEY;
+    const originalLegacyKey = env.GEMINI_API_KEY;
+
+    try {
+      (env as { GOOGLE_AI_API_KEY?: string }).GOOGLE_AI_API_KEY = "test-google-ai-key";
+      (env as { GEMINI_API_KEY?: string }).GEMINI_API_KEY = undefined;
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            models: [
+              {
+                name: "models/gemini-2.0-flash",
+                supportedGenerationMethods: ["generateContent"],
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        )
+      );
+
+      const sendMessageMock = vi.fn().mockResolvedValue({
+        response: {
+          text: () =>
+            JSON.stringify({
+              reply:
+                "I can prepare that, but I still need the account and category before I propose the action.",
+              actions: [
+                {
+                  kind: "create_transaction",
+                  title: "Add lunch transaction",
+                  rationale: "You asked me to log the purchase.",
+                  data: {
+                    amount: 18.5,
+                    description: "Lunch",
+                  },
+                },
+              ],
+            }),
+        },
+      });
+
+      vi.spyOn(GoogleGenerativeAI.prototype, "getGenerativeModel").mockReturnValue({
+        startChat: vi.fn(() => ({
+          sendMessage: sendMessageMock,
+        })),
+      } as never);
+
+      const result = await advisorService.chat(uid.toString(), {
+        message: "Add a lunch transaction for me.",
+        history: [],
+      });
+
+      expect(result.reply).toContain("I still need the account and category");
+      expect(result.actions).toEqual([]);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "[advisor] Dropped malformed advisor action proposal.",
+        expect.any(Object)
+      );
+    } finally {
+      (env as { GOOGLE_AI_API_KEY?: string }).GOOGLE_AI_API_KEY = originalGoogleKey;
+      (env as { GEMINI_API_KEY?: string }).GEMINI_API_KEY = originalLegacyKey;
+    }
+  });
+
   it("falls back to the next Gemini model when the first model fails", async () => {
     const result = await advisorService.runWithGeminiModelFallback(
       ["gemini-2.5-flash", "gemini-2.0-flash"],

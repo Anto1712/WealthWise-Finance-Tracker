@@ -11,6 +11,7 @@ import {
   type ResponseSchema,
 } from "@google/generative-ai";
 import {
+  advisorPlannedActionSchema,
   advisorChatModelOutputSchema,
   type AdvisorActionExecutionResult,
   type AdvisorActionProposal,
@@ -190,6 +191,15 @@ function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function logAdvisorError(message: string, details?: unknown) {
+  if (details === undefined) {
+    console.error(`[advisor] ${message}`);
+    return;
+  }
+
+  console.error(`[advisor] ${message}`, details);
+}
+
 function getGeminiApiKey() {
   return env.GOOGLE_AI_API_KEY ?? env.GEMINI_API_KEY;
 }
@@ -274,7 +284,8 @@ export async function getGeminiModelCandidates(apiKey: string) {
   } else {
     try {
       modelsToTry = await fetchGeminiModels(apiKey, allowProModels);
-    } catch {
+    } catch (error) {
+      logAdvisorError("Failed to fetch Gemini models. Falling back to defaults.", error);
       modelsToTry = [];
     }
   }
@@ -316,11 +327,17 @@ function parseGeminiJson(text: string) {
   for (const candidate of candidates) {
     try {
       return JSON.parse(candidate);
-    } catch {
-      // Keep trying fallbacks.
+    } catch (error) {
+      logAdvisorError("Failed to parse Gemini JSON candidate.", {
+        error,
+        candidatePreview: candidate.slice(0, 240),
+      });
     }
   }
 
+  logAdvisorError("Gemini response was not valid JSON after all parse attempts.", {
+    responsePreview: trimmedText.slice(0, 500),
+  });
   throw ApiError.internal("AI advisor returned malformed structured data");
 }
 
@@ -368,6 +385,7 @@ export async function runWithGeminiModelFallback<T>(
         result: await runner(model),
       };
     } catch (error) {
+      logAdvisorError(`Gemini model attempt failed for ${model}.`, error);
       errors.push(toGeminiAttemptError(model, error));
     }
   }
@@ -389,6 +407,7 @@ function buildSystemInstruction(userName: string, currency: string) {
     "Do not provide legal, tax, or investment advice. Offer general educational guidance when those topics arise.",
     "If the user explicitly asks you to create something in the app and all required fields are known, put the proposed create action in the actions array.",
     "Supported actions are: create_account, create_category, create_budget, create_goal, create_recurring, create_transaction.",
+    "Required action fields: create_account(name,type,balance,currency,color); create_category(name,type,color,icon); create_budget(categoryName,amount,period,alertThreshold); create_goal(name,targetAmount,currentAmount,color,icon); create_recurring(accountName,categoryName,type,amount,description,frequency,startDate); create_transaction(accountName,categoryName,type,amount,description,date).",
     "Never claim an action has already been completed. Actions must be proposals that wait for user confirmation in the UI.",
     "If required details are missing, ask a follow-up question in reply and leave actions empty.",
     "When you propose an action, use exact account and category names from the provided dataset.",
@@ -753,20 +772,59 @@ async function resolveCategoryByName(
 }
 
 function buildProposedActions(rawActions: unknown): AdvisorActionProposal[] {
-  const parsed = advisorChatModelOutputSchema.safeParse({
-    reply: "placeholder",
-    actions: rawActions,
-  });
-
-  if (!parsed.success) {
-    throw ApiError.internal("AI advisor returned an invalid action plan");
+  if (!Array.isArray(rawActions)) {
+    return [];
   }
 
-  return parsed.data.actions.map((action) => ({
-    ...action,
-    id: randomUUID(),
-    requiresConfirmation: true,
-  }));
+  return rawActions.slice(0, 3).flatMap((action) => {
+    const parsed = advisorPlannedActionSchema.safeParse(action);
+    if (!parsed.success) {
+      logAdvisorError("Dropped malformed advisor action proposal.", parsed.error.flatten());
+      return [];
+    }
+
+    return [
+      {
+        ...parsed.data,
+        id: randomUUID(),
+        requiresConfirmation: true,
+      },
+    ];
+  });
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeAdvisorModelOutput(parsedJson: unknown, responseText: string) {
+  const strictParse = advisorChatModelOutputSchema.safeParse(parsedJson);
+  if (strictParse.success) {
+    return strictParse.data;
+  }
+
+  logAdvisorError(
+    "Advisor model output failed strict schema validation. Falling back to lenient normalization.",
+    {
+      issues: strictParse.error.flatten(),
+      parsedJson,
+    }
+  );
+
+  const reply =
+    (isObject(parsedJson) && typeof parsedJson.reply === "string" ? parsedJson.reply : null) ??
+    (typeof parsedJson === "string" ? parsedJson : null) ??
+    responseText;
+
+  const normalizedReply = reply.trim();
+  if (!normalizedReply) {
+    throw ApiError.internal("AI advisor returned an invalid structured response");
+  }
+
+  return {
+    reply: normalizedReply,
+    actions: isObject(parsedJson) ? parsedJson.actions : [],
+  };
 }
 
 function summarizeActionExecution(
@@ -832,15 +890,11 @@ export async function chat(
   );
 
   const parsedJson = parseGeminiJson(responseText);
-  const parsedOutput = advisorChatModelOutputSchema.safeParse(parsedJson);
-  if (!parsedOutput.success) {
-    throw ApiError.internal("AI advisor returned an invalid structured response");
-  }
-
-  const actions = buildProposedActions(parsedOutput.data.actions);
+  const parsedOutput = normalizeAdvisorModelOutput(parsedJson, responseText);
+  const actions = buildProposedActions(parsedOutput.actions);
 
   return {
-    reply: parsedOutput.data.reply,
+    reply: parsedOutput.reply,
     actions,
     model,
     generatedAt: new Date().toISOString(),
