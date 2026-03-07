@@ -618,12 +618,12 @@ export function AdvisorPageClient() {
 
                   <div
                     ref={promptRailRef}
-                    className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto pb-2 pr-6 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
                     {STARTER_PROMPTS.map((prompt) => (
                       <div
                         key={prompt.title}
-                        className="h-full min-w-[290px] max-w-[290px] shrink-0 snap-start"
+                        className="flex min-w-[290px] max-w-[290px] shrink-0 snap-start"
                       >
                         <AdvisorSuggestionCard
                           icon={prompt.icon}
